@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>勤務表変換ツール</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-primary: #0f1419;
@@ -28,7 +27,7 @@
         }
 
         body {
-            font-family: 'Noto Sans JP', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
@@ -183,7 +182,7 @@
         }
 
         .file-info-value {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: monospace;
             font-size: 0.85rem;
             color: var(--accent-cyan);
         }
@@ -201,7 +200,7 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
-            font-family: 'Noto Sans JP', sans-serif;
+            font-family: inherit;
         }
 
         .download-btn:hover {
@@ -243,7 +242,7 @@
 
         .mapping-from {
             color: var(--text-secondary);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: monospace;
         }
 
         .mapping-arrow {
@@ -253,7 +252,7 @@
 
         .mapping-to {
             color: var(--accent-green);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: monospace;
             font-weight: 500;
         }
 
@@ -424,7 +423,6 @@
     </div>
 
     <script>
-        // 勤務コード変換マッピング
         const SHIFT_MAPPING = {
             '/ﾊ': '休',
             '公': '休',
@@ -454,7 +452,6 @@
         let convertedWorkbook = null;
         let originalFileName = '';
 
-        // マッピンググリッドを表示
         function displayMappingGrid() {
             const grid = document.getElementById('mappingGrid');
             grid.innerHTML = '';
@@ -479,7 +476,6 @@
             }
         }
 
-        // シフトコードを変換
         function convertShiftCode(code) {
             if (!code || code === '' || code === null || code === undefined) {
                 return '';
@@ -488,7 +484,6 @@
             return SHIFT_MAPPING[codeStr] !== undefined ? SHIFT_MAPPING[codeStr] : codeStr;
         }
 
-        // Excelファイルを解析
         function parseExcelFile(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -506,13 +501,11 @@
             });
         }
 
-        // 勤務表を変換
         function convertRoster(workbook) {
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
             
-            // 対象期間を取得（行5、列2付近）
             let periodText = '';
             for (let row = 0; row < 10; row++) {
                 for (let col = 0; col < 5; col++) {
@@ -524,7 +517,6 @@
                 }
             }
             
-            // 年月を解析
             let year = 2025;
             let month = 11;
             const periodMatch = periodText.match(/(\d{4})年(\d{1,2})月/);
@@ -533,10 +525,7 @@
                 month = parseInt(periodMatch[2]);
             }
             
-            // 月の日数を計算
             const daysInMonth = new Date(year, month, 0).getDate();
-            
-            // 職員データを抽出
             const staff = [];
             let staffNo = 0;
             
@@ -544,7 +533,6 @@
                 const rowData = rawData[row];
                 if (!rowData) continue;
                 
-                // No列（列0）と職員氏名（列1）、予定（列4）をチェック
                 const noVal = rowData[0];
                 const nameVal = rowData[1];
                 const typeVal = rowData[4];
@@ -555,7 +543,6 @@
                     staffNo++;
                     const shifts = [];
                     
-                    // 列5から日数分のシフトを取得
                     for (let day = 0; day < daysInMonth; day++) {
                         const shiftCode = rowData[5 + day];
                         shifts.push(convertShiftCode(shiftCode));
@@ -578,11 +565,9 @@
             };
         }
 
-        // 変換済みデータからExcelを生成
         function createConvertedExcel(data) {
             const headers = ['ID', 'Name'];
             
-            // 日付ヘッダーを追加
             for (let day = 1; day <= data.daysInMonth; day++) {
                 const date = new Date(data.year, data.month - 1, day);
                 headers.push(date);
@@ -590,21 +575,18 @@
             
             const rows = [headers];
             
-            // 職員データを追加
             for (const member of data.staff) {
                 const row = [member.id, member.name, ...member.shifts];
                 rows.push(row);
             }
             
-            // ワークブックを作成
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.aoa_to_sheet(rows);
             
-            // 列幅を設定
             ws['!cols'] = [
-                { wch: 5 },   // ID
-                { wch: 15 },  // Name
-                ...Array(data.daysInMonth).fill({ wch: 12 })  // 日付列
+                { wch: 5 },
+                { wch: 15 },
+                ...Array(data.daysInMonth).fill({ wch: 12 })
             ];
             
             XLSX.utils.book_append_sheet(wb, ws, 'formatted_roster');
@@ -612,18 +594,15 @@
             return wb;
         }
 
-        // プレビューテーブルを表示
         function displayPreview(data) {
             const table = document.getElementById('previewTable');
             
-            // ヘッダー行
             let headerHTML = '<thead><tr><th>ID</th><th>氏名</th>';
             for (let day = 1; day <= data.daysInMonth; day++) {
                 headerHTML += `<th>${day}</th>`;
             }
             headerHTML += '</tr></thead>';
             
-            // データ行（先頭10名）
             let bodyHTML = '<tbody>';
             const previewStaff = data.staff.slice(0, 10);
             
@@ -640,40 +619,29 @@
             table.innerHTML = headerHTML + bodyHTML;
         }
 
-        // ファイルを処理
         async function processFile(file) {
             originalFileName = file.name;
             
             try {
-                // ステータスを表示
                 document.getElementById('statusSection').classList.remove('hidden');
                 document.getElementById('statusTitle').textContent = '処理中...';
                 document.getElementById('statusIcon').innerHTML = '<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="30 70" class="spinner"/>';
                 document.getElementById('downloadBtn').classList.add('hidden');
                 
-                // Excelを解析
                 const workbook = await parseExcelFile(file);
-                
-                // 勤務表を変換
                 convertedData = convertRoster(workbook);
-                
-                // 変換済みExcelを生成
                 convertedWorkbook = createConvertedExcel(convertedData);
                 
-                // ステータスを更新
                 document.getElementById('statusTitle').textContent = '変換完了';
                 document.getElementById('statusIcon').innerHTML = '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>';
                 document.getElementById('statusIcon').classList.add('success');
                 
-                // ファイル情報を表示
                 document.getElementById('fileName').textContent = file.name;
                 document.getElementById('staffCount').textContent = `${convertedData.staff.length}名`;
                 document.getElementById('period').textContent = convertedData.period;
                 
-                // ダウンロードボタンを表示
                 document.getElementById('downloadBtn').classList.remove('hidden');
                 
-                // プレビューを表示
                 document.getElementById('previewSection').classList.remove('hidden');
                 displayPreview(convertedData);
                 
@@ -686,7 +654,6 @@
             }
         }
 
-        // ファイルをダウンロード
         function downloadFile() {
             if (!convertedWorkbook) return;
             
@@ -696,7 +663,6 @@
             XLSX.writeFile(convertedWorkbook, outputName);
         }
 
-        // イベントリスナーを設定
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
@@ -706,7 +672,6 @@
 
         document.getElementById('downloadBtn').addEventListener('click', downloadFile);
 
-        // ドラッグ＆ドロップ
         const uploadSection = document.getElementById('uploadSection');
         
         uploadSection.addEventListener('dragover', function(e) {
@@ -729,7 +694,6 @@
             }
         });
 
-        // 初期化
         displayMappingGrid();
     </script>
 </body>

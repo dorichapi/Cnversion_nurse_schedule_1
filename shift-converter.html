@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤務表変換ツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f1419;
+            --bg-secondary: #1a2332;
+            --bg-tertiary: #243447;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+            --success: #22c55e;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            position: relative;
+        }
+
+        header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+            border-radius: 2px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 300;
+        }
+
+        .upload-section {
+            background: var(--bg-secondary);
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-section:hover {
+            border-color: var(--accent-blue);
+            background: var(--bg-tertiary);
+        }
+
+        .upload-section.drag-over {
+            border-color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .upload-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1.5rem;
+            fill: var(--accent-blue);
+            opacity: 0.8;
+        }
+
+        .upload-text {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-hint {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        #fileInput {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .status-section {
+            margin-top: 2rem;
+        }
+
+        .status-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        .status-icon.success { fill: var(--success); }
+        .status-icon.error { fill: var(--error); }
+        .status-icon.processing { fill: var(--accent-cyan); }
+
+        .status-title {
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .file-info {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .file-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .file-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .file-info-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .file-info-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent-cyan);
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            color: white;
+            border: none;
+            padding: 0.85rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .download-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .mapping-section {
+            margin-top: 2rem;
+        }
+
+        .mapping-title {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .mapping-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .mapping-item {
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            border: 1px solid var(--border-color);
+        }
+
+        .mapping-from {
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .mapping-arrow {
+            color: var(--accent-blue);
+            margin: 0 0.3rem;
+        }
+
+        .mapping-to {
+            color: var(--accent-green);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+        }
+
+        .preview-section {
+            margin-top: 2rem;
+        }
+
+        .preview-title {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .preview-table-container {
+            overflow-x: auto;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        .preview-table th,
+        .preview-table td {
+            padding: 0.5rem 0.6rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        .preview-table th {
+            background: var(--bg-tertiary);
+            font-weight: 500;
+            color: var(--accent-cyan);
+            position: sticky;
+            top: 0;
+        }
+
+        .preview-table th:first-child,
+        .preview-table th:nth-child(2) {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+
+        .preview-table th:nth-child(2) {
+            left: 40px;
+        }
+
+        .preview-table td:first-child,
+        .preview-table td:nth-child(2) {
+            position: sticky;
+            background: var(--bg-secondary);
+        }
+
+        .preview-table td:first-child {
+            left: 0;
+        }
+
+        .preview-table td:nth-child(2) {
+            left: 40px;
+        }
+
+        .preview-table tr:hover td {
+            background: var(--bg-tertiary);
+        }
+
+        .shift-休 { color: #94a3b8; }
+        .shift-日 { color: #22c55e; }
+        .shift-夜 { color: #f59e0b; }
+        .shift-明 { color: #3b82f6; }
+        .shift-有 { color: #ec4899; }
+        .shift-欠 { color: #ef4444; }
+
+        .hidden {
+            display: none;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        footer {
+            margin-top: 3rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            padding-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>勤務表変換ツール</h1>
+            <p class="subtitle">元の勤務表Excelを指定の形式に変換します</p>
+        </header>
+
+        <div class="upload-section" id="uploadSection">
+            <svg class="upload-icon" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+                <path d="M8 14h8v2H8zm0-4h8v2H8z"/>
+            </svg>
+            <p class="upload-text">クリックまたはドラッグ＆ドロップでファイルを選択</p>
+            <p class="upload-hint">対応形式: .xlsx</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls">
+        </div>
+
+        <div class="status-section hidden" id="statusSection">
+            <div class="status-card">
+                <div class="status-header">
+                    <svg class="status-icon success" id="statusIcon" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                    </svg>
+                    <span class="status-title" id="statusTitle">変換完了</span>
+                </div>
+                
+                <div class="file-info" id="fileInfo">
+                    <div class="file-info-row">
+                        <span class="file-info-label">ファイル名</span>
+                        <span class="file-info-value" id="fileName">-</span>
+                    </div>
+                    <div class="file-info-row">
+                        <span class="file-info-label">職員数</span>
+                        <span class="file-info-value" id="staffCount">-</span>
+                    </div>
+                    <div class="file-info-row">
+                        <span class="file-info-label">対象期間</span>
+                        <span class="file-info-value" id="period">-</span>
+                    </div>
+                </div>
+                
+                <button class="download-btn" id="downloadBtn">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    変換済みファイルをダウンロード
+                </button>
+            </div>
+        </div>
+
+        <div class="preview-section hidden" id="previewSection">
+            <h3 class="preview-title">プレビュー（先頭10名）</h3>
+            <div class="preview-table-container">
+                <table class="preview-table" id="previewTable">
+                </table>
+            </div>
+        </div>
+
+        <div class="mapping-section">
+            <h3 class="mapping-title">勤務コード変換ルール</h3>
+            <div class="mapping-grid" id="mappingGrid"></div>
+        </div>
+
+        <footer>
+            勤務表データは全てブラウザ内で処理されます
+        </footer>
+    </div>
+
+    <script>
+        // 勤務コード変換マッピング
+        const SHIFT_MAPPING = {
+            '/ﾊ': '休',
+            '公': '休',
+            'ｵ1/ﾊ': '休',
+            'ﾊ/ﾊ': '休',
+            '・': '日',
+            '・申': '日',
+            '短1': '日',
+            '短2': '日',
+            '遅1': '日',
+            '準': '夜',
+            '管準': '夜',
+            '深': '明',
+            '管深': '明',
+            '年': '有',
+            '欠': '欠',
+            '出張': '出張',
+            '学欠': '学欠',
+            '育': '育',
+            '遅4': '遅4',
+            'P4Ba': 'P4Ba',
+            'P4Ca': 'P4Ca',
+            'ﾈ/ﾊ1': 'ﾈ/ﾊ1'
+        };
+
+        let convertedData = null;
+        let convertedWorkbook = null;
+        let originalFileName = '';
+
+        // マッピンググリッドを表示
+        function displayMappingGrid() {
+            const grid = document.getElementById('mappingGrid');
+            grid.innerHTML = '';
+            
+            const uniqueMappings = {};
+            for (const [from, to] of Object.entries(SHIFT_MAPPING)) {
+                if (!uniqueMappings[to]) {
+                    uniqueMappings[to] = [];
+                }
+                uniqueMappings[to].push(from);
+            }
+            
+            for (const [to, froms] of Object.entries(uniqueMappings)) {
+                const item = document.createElement('div');
+                item.className = 'mapping-item';
+                item.innerHTML = `
+                    <span class="mapping-from">${froms.join(', ')}</span>
+                    <span class="mapping-arrow">→</span>
+                    <span class="mapping-to">${to}</span>
+                `;
+                grid.appendChild(item);
+            }
+        }
+
+        // シフトコードを変換
+        function convertShiftCode(code) {
+            if (!code || code === '' || code === null || code === undefined) {
+                return '';
+            }
+            const codeStr = String(code).trim();
+            return SHIFT_MAPPING[codeStr] !== undefined ? SHIFT_MAPPING[codeStr] : codeStr;
+        }
+
+        // Excelファイルを解析
+        function parseExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        resolve(workbook);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // 勤務表を変換
+        function convertRoster(workbook) {
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            
+            // 対象期間を取得（行5、列2付近）
+            let periodText = '';
+            for (let row = 0; row < 10; row++) {
+                for (let col = 0; col < 5; col++) {
+                    const cell = rawData[row]?.[col];
+                    if (cell && String(cell).includes('対象期間')) {
+                        periodText = String(cell).replace('対象期間：', '').trim();
+                        break;
+                    }
+                }
+            }
+            
+            // 年月を解析
+            let year = 2025;
+            let month = 11;
+            const periodMatch = periodText.match(/(\d{4})年(\d{1,2})月/);
+            if (periodMatch) {
+                year = parseInt(periodMatch[1]);
+                month = parseInt(periodMatch[2]);
+            }
+            
+            // 月の日数を計算
+            const daysInMonth = new Date(year, month, 0).getDate();
+            
+            // 職員データを抽出
+            const staff = [];
+            let staffNo = 0;
+            
+            for (let row = 0; row < rawData.length; row++) {
+                const rowData = rawData[row];
+                if (!rowData) continue;
+                
+                // No列（列0）と職員氏名（列1）、予定（列4）をチェック
+                const noVal = rowData[0];
+                const nameVal = rowData[1];
+                const typeVal = rowData[4];
+                
+                if (noVal !== undefined && noVal !== null && noVal !== '' && 
+                    nameVal && typeVal === '予定') {
+                    
+                    staffNo++;
+                    const shifts = [];
+                    
+                    // 列5から日数分のシフトを取得
+                    for (let day = 0; day < daysInMonth; day++) {
+                        const shiftCode = rowData[5 + day];
+                        shifts.push(convertShiftCode(shiftCode));
+                    }
+                    
+                    staff.push({
+                        id: staffNo,
+                        name: String(nameVal).trim(),
+                        shifts: shifts
+                    });
+                }
+            }
+            
+            return {
+                year: year,
+                month: month,
+                daysInMonth: daysInMonth,
+                staff: staff,
+                period: periodText || `${year}年${month}月`
+            };
+        }
+
+        // 変換済みデータからExcelを生成
+        function createConvertedExcel(data) {
+            const headers = ['ID', 'Name'];
+            
+            // 日付ヘッダーを追加
+            for (let day = 1; day <= data.daysInMonth; day++) {
+                const date = new Date(data.year, data.month - 1, day);
+                headers.push(date);
+            }
+            
+            const rows = [headers];
+            
+            // 職員データを追加
+            for (const member of data.staff) {
+                const row = [member.id, member.name, ...member.shifts];
+                rows.push(row);
+            }
+            
+            // ワークブックを作成
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            
+            // 列幅を設定
+            ws['!cols'] = [
+                { wch: 5 },   // ID
+                { wch: 15 },  // Name
+                ...Array(data.daysInMonth).fill({ wch: 12 })  // 日付列
+            ];
+            
+            XLSX.utils.book_append_sheet(wb, ws, 'formatted_roster');
+            
+            return wb;
+        }
+
+        // プレビューテーブルを表示
+        function displayPreview(data) {
+            const table = document.getElementById('previewTable');
+            
+            // ヘッダー行
+            let headerHTML = '<thead><tr><th>ID</th><th>氏名</th>';
+            for (let day = 1; day <= data.daysInMonth; day++) {
+                headerHTML += `<th>${day}</th>`;
+            }
+            headerHTML += '</tr></thead>';
+            
+            // データ行（先頭10名）
+            let bodyHTML = '<tbody>';
+            const previewStaff = data.staff.slice(0, 10);
+            
+            for (const member of previewStaff) {
+                bodyHTML += `<tr><td>${member.id}</td><td>${member.name}</td>`;
+                for (const shift of member.shifts) {
+                    const shiftClass = `shift-${shift}`;
+                    bodyHTML += `<td class="${shiftClass}">${shift || '-'}</td>`;
+                }
+                bodyHTML += '</tr>';
+            }
+            bodyHTML += '</tbody>';
+            
+            table.innerHTML = headerHTML + bodyHTML;
+        }
+
+        // ファイルを処理
+        async function processFile(file) {
+            originalFileName = file.name;
+            
+            try {
+                // ステータスを表示
+                document.getElementById('statusSection').classList.remove('hidden');
+                document.getElementById('statusTitle').textContent = '処理中...';
+                document.getElementById('statusIcon').innerHTML = '<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="30 70" class="spinner"/>';
+                document.getElementById('downloadBtn').classList.add('hidden');
+                
+                // Excelを解析
+                const workbook = await parseExcelFile(file);
+                
+                // 勤務表を変換
+                convertedData = convertRoster(workbook);
+                
+                // 変換済みExcelを生成
+                convertedWorkbook = createConvertedExcel(convertedData);
+                
+                // ステータスを更新
+                document.getElementById('statusTitle').textContent = '変換完了';
+                document.getElementById('statusIcon').innerHTML = '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>';
+                document.getElementById('statusIcon').classList.add('success');
+                
+                // ファイル情報を表示
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('staffCount').textContent = `${convertedData.staff.length}名`;
+                document.getElementById('period').textContent = convertedData.period;
+                
+                // ダウンロードボタンを表示
+                document.getElementById('downloadBtn').classList.remove('hidden');
+                
+                // プレビューを表示
+                document.getElementById('previewSection').classList.remove('hidden');
+                displayPreview(convertedData);
+                
+            } catch (err) {
+                console.error(err);
+                document.getElementById('statusTitle').textContent = 'エラーが発生しました';
+                document.getElementById('statusIcon').innerHTML = '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>';
+                document.getElementById('statusIcon').classList.remove('success');
+                document.getElementById('statusIcon').classList.add('error');
+            }
+        }
+
+        // ファイルをダウンロード
+        function downloadFile() {
+            if (!convertedWorkbook) return;
+            
+            const baseName = originalFileName.replace(/\.xlsx?$/i, '');
+            const outputName = `pre_${baseName}.xlsx`;
+            
+            XLSX.writeFile(convertedWorkbook, outputName);
+        }
+
+        // イベントリスナーを設定
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        });
+
+        document.getElementById('downloadBtn').addEventListener('click', downloadFile);
+
+        // ドラッグ＆ドロップ
+        const uploadSection = document.getElementById('uploadSection');
+        
+        uploadSection.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+
+        uploadSection.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+        });
+
+        uploadSection.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            
+            const file = e.dataTransfer.files[0];
+            if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                processFile(file);
+            }
+        });
+
+        // 初期化
+        displayMappingGrid();
+    </script>
+</body>
+</html>
